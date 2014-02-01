@@ -1,0 +1,4 @@
+LIBRARY	"junk_serialization"
+EXPORTS
+SKSEPlugin_Query
+SKSEPlugin_Load
