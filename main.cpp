@@ -9,15 +9,29 @@ intrinsic class skse {
 static var plugins:Object;
 }
 
+// store a string
 function skse.plugins.junk_serialization.SetData(key:String, value:String):Void;
+// retrieve string
 function skse.plugins.junk_serialization.GetData(key:String):String;
+// remove data associated with key
+function skse.plugins.junk_serialization.Remove(key:String):Void;
+
+SetObjects and GetObjects are pretty specific to junk stuff and not generically usable,
+test to increase json parsing speed when structure of object is known
+
+much faster than an actionscript json parser or other as string parsing methods
+
+actionscript: couple minutes for 20,000 objects and about 4mb of raw json data
+or a couple seconds w/ the C parser
 
 pretty much copied from the skse plugin_example:
 */
+#include "common/IPrefix.h"
 #include "skse/PluginAPI.h"
 #include "skse/skse_version.h"
 #include "skse/ScaleformCallbacks.h"
 #include "skse/ScaleformMovie.h"
+#include "cJSON.h"
 #include <vector>
 #include <string>
 #include <map>
@@ -68,10 +82,164 @@ public:
 	}
 };
 
+// function GetObjects(name:String):Array
+class SKSEScaleform_GetObjects : public GFxFunctionHandler
+{
+
+public:
+	virtual void Invoke(Args * args)
+	{
+		ASSERT(args->numArgs >= 1);
+		args->result->SetUndefined();
+		iter i = g_data.find(args->args[0].GetString());
+		cJSON* root;
+		if (i != g_data.end() && (root = cJSON_Parse(i->second.c_str()))) {
+			if (root->type == cJSON_Array) {
+				args->movie->CreateArray(args->result);
+
+				int len = cJSON_GetArraySize(root);
+				_MESSAGE("GetObjects %s (%d items)", args->args[0].GetString(), len);
+				for (int i = 0; i < len; ++i) {
+					GFxValue gobj;
+					cJSON* item = cJSON_GetArrayItem(root, i);
+					args->movie->CreateObject(&gobj);
+
+					int np = cJSON_GetArraySize(item);
+					for (int j = 0; j < np; ++j) {
+						cJSON* jm = cJSON_GetArrayItem(item, j);
+						GFxValue gm;
+						bool add = true;
+						switch (jm->type) {
+						case cJSON_True:
+							gm.SetBool(true);
+							break;
+						case cJSON_False:
+							gm.SetBool(false);
+							break;
+						case cJSON_Number:
+							gm.SetNumber(jm->valuedouble);
+							break;
+						case cJSON_String:
+							args->movie->CreateString(&gm, jm->valuestring);
+							break;
+						default:
+							add = false;
+							break;
+						}
+						if (add) {
+							gobj.SetMember(jm->string, &gm);
+						}
+					}
+					args->result->PushBack(&gobj);
+				}
+			}
+			cJSON_Delete(root);
+		}
+	}
+};
+
+//static const char* members[] = {"baseId", "formId", "name", "effects"};
+// function SetObjects(name:String, objects:Array, memberNames:Array):Boolean
+class SKSEScaleform_SetObjects : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		if (args->numArgs < 3 ||
+			args->args[0].GetType() != GFxValue::kType_String ||
+			args->args[1].GetType() != GFxValue::kType_Array ||
+			args->args[2].GetType() != GFxValue::kType_Array) {
+				args->result->SetBool(false);
+				return;
+		}
+		_MESSAGE("SetObjects %s (%d items)", args->args[0].GetString(), args->args[1].GetArraySize());
+		cJSON* root = cJSON_CreateArray();
+
+		std::vector<std::string> memberNames;
+		typedef std::vector<std::string>::iterator miter;
+		UInt32 mlen = args->args[2].GetArraySize();
+		for (UInt32 i = 0; i < mlen; ++i) {
+			GFxValue amem;
+			if (args->args[2].GetElement(i, &amem)) {
+				_MESSAGE("member %s", amem.GetString());
+				memberNames.push_back(amem.GetString());
+			}
+		}
+
+		UInt32 len = args->args[1].GetArraySize();
+		for (UInt32 i = 0; i < len; ++i) {
+			GFxValue gobj, gmem;
+			args->args[1].GetElement(i, &gobj);
+			cJSON* jobj = cJSON_CreateObject();
+
+			for (miter j = memberNames.begin(); j != memberNames.end(); ++j) {
+				if (gobj.HasMember(j->c_str())) {
+					gobj.GetMember(j->c_str(), &gmem);
+					
+					switch(gmem.GetType()) {
+					case GFxValue::kType_Bool:
+						cJSON_AddBoolToObject(jobj, j->c_str(), gmem.GetBool());
+						break;
+					case GFxValue::kType_Number:
+						cJSON_AddNumberToObject(jobj, j->c_str(), gmem.GetNumber());
+						break;
+					case GFxValue::kType_String:
+						cJSON_AddStringToObject(jobj, j->c_str(), gmem.GetString());
+						break;
+					}
+				}
+			}
+
+			cJSON_AddItemToArray(root, jobj);
+		}
+
+		char* value = cJSON_PrintUnformatted(root);
+		g_data[std::string(args->args[0].GetString())] = std::string(value);
+		free(value);
+		cJSON_Delete(root);
+		
+		args->result->SetBool(true);
+	}
+};
+
+class SKSEScaleform_Remove : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		ASSERT(args->numArgs >= 1);
+		args->result->SetUndefined();
+		iter i = g_data.find(args->args[0].GetString());
+		if (i != g_data.end()) {
+			_MESSAGE("Remove %s %d bytes", i->first.c_str(), i->second.size());
+			g_data.erase(i);
+		}
+	}
+};
+
+class TLog : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		ASSERT(args->numArgs >= 1);
+		args->result->SetUndefined();
+
+		gLog.Message(args->args[0].GetString());
+	}
+};
+
 bool RegisterScaleform(GFxMovieView * view, GFxValue * root)
 {
 	RegisterFunction <SKSEScaleform_SetData>(root, view, "SetData");
 	RegisterFunction <SKSEScaleform_GetData>(root, view, "GetData");
+	
+	RegisterFunction <SKSEScaleform_SetObjects>(root, view, "SetObjects");
+	RegisterFunction <SKSEScaleform_GetObjects>(root, view, "GetObjects");
+
+	RegisterFunction <SKSEScaleform_Remove>(root, view, "Remove");
+
+	//RegisterFunction <TLog>(root, view, "log");
 
 	return true;
 }
@@ -154,7 +322,7 @@ void Serialization_Load(SKSESerializationInterface * intfc)
 						char* buf = new char[length];
 						intfc->ReadRecordData(buf, length);
 						std::string val = std::string(buf, buf+length);
-						_MESSAGE("val %s", val.c_str());
+						_MESSAGE("val read");
 						g_data[key] = val;
 						delete [] buf;
 						_MESSAGE("add to map");

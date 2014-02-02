@@ -45,7 +45,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;JUNK_SERIALIZATION_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="4"
@@ -87,6 +87,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="copy /y &quot;$(TargetPath)&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;&#x0D;&#x0A;copy /y &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -123,7 +124,7 @@
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
-				ForcedIncludeFiles="common/IPrefix.h"
+				ForcedIncludeFiles=""
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -164,7 +165,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="copy /y &quot;$(TargetPath)&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;"
+				CommandLine="copy /y &quot;$(TargetPath)&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;&#x0D;&#x0A;copy /y &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -177,6 +178,22 @@
 			<File
 				RelativePath="..\skse\ScaleformAPI.cpp"
 				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\skse\ScaleformAPI.h"
@@ -185,9 +202,37 @@
 			<File
 				RelativePath="..\skse\ScaleformCallbacks.cpp"
 				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\skse\ScaleformCallbacks.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="JSON"
+			>
+			<File
+				RelativePath=".\cJSON.c"
+				>
+			</File>
+			<File
+				RelativePath=".\cJSON.h"
 				>
 			</File>
 		</Filter>
