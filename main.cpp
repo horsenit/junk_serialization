@@ -37,6 +37,8 @@ pretty much copied from the skse plugin_example:
 #include <map>
 #include <shlobj.h>
 
+const UInt32 kPluginVersion = 1;
+
 IDebugLog gLog;
 PluginHandle	g_pluginHandle = kPluginHandle_Invalid;
 SKSEScaleformInterface		* g_scaleform = NULL;
@@ -359,7 +361,7 @@ bool SKSEPlugin_Query(const SKSEInterface * skse, PluginInfo * info)
 	// populate info structure
 	info->infoVersion =	PluginInfo::kInfoVersion;
 	info->name =		"junk serialization plugin";
-	info->version =		1;
+	info->version =		kPluginVersion;
 
 	_MESSAGE("%s %d, %d", info->name, info->infoVersion, info->version);
 
