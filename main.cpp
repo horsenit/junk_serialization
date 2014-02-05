@@ -27,6 +27,7 @@ or a couple seconds w/ the C parser
 pretty much copied from the skse plugin_example:
 */
 #include "common/IPrefix.h"
+#include "common/IFileStream.h"
 #include "skse/PluginAPI.h"
 #include "skse/skse_version.h"
 #include "skse/ScaleformCallbacks.h"
@@ -35,6 +36,7 @@ pretty much copied from the skse plugin_example:
 #include <vector>
 #include <string>
 #include <map>
+#include <algorithm>
 #include <shlobj.h>
 
 const UInt32 kPluginVersion = 1;
@@ -51,6 +53,250 @@ typedef dataMap::iterator iter;
 dataMap g_data;
 
 // Scaleform
+
+class ObjectVisitor
+{
+public:
+	virtual ~ObjectVisitor() {}
+protected:
+	virtual void Visit_impl(const char *** name, void* unk1, void* unk2) {
+		/*const char * name_str;
+		__asm {
+			push eax
+			mov eax, name
+			mov eax, [eax]
+			mov eax, [eax]
+			mov name_str, eax
+			pop eax
+		}*/
+		Visit(**name);
+	}
+
+public:
+	virtual void Visit(const char* name) = 0;
+};
+
+#define BDISPLAYOBJECT_GET 0x92CC00
+
+bool visitMembers(GFxValue* val, ObjectVisitor* visitor, bool isDisplayObject) {
+	void* data = val->data.obj;
+	GFxValue::ObjectInterface* othis = val->objectInterface;
+	GFxMovieRoot* root = othis->root;
+
+	if (isDisplayObject) {
+	__asm {
+		pushad
+
+		mov ecx, data
+		mov ebx, root
+		push ebx
+		mov esi, BDISPLAYOBJECT_GET
+		call esi
+		test eax, eax
+		jz errorDisplay
+		lea esi, [eax+78h]
+		test esi, esi
+		jz errorDisplay
+		mov data, esi
+		jmp good
+	errorDisplay:
+		popad
+	}
+		return false;
+	}
+
+__asm {
+	pushad
+good:
+	mov ecx, root
+	mov ecx, [ecx+30h]
+	mov edx, [ecx]
+	mov eax, [edx+70h]
+	call eax
+
+	mov edi, eax
+	add edi, 78h
+
+	mov ecx, data
+	//mov eax, [ecx]
+	mov edx, [ecx]
+	mov edx, [edx+20h]
+
+	push 0
+	push 3
+	mov eax, visitor
+	push eax
+	push edi
+	call edx
+
+	popad
+}
+
+	return true;
+}
+
+cJSON* stringify(GFxValue* groot, GFxMovieView* movie, std::vector<GFxValue*>& parents);
+
+class Stringify
+{
+public:
+	class StringifyVisitor : public ObjectVisitor
+	{
+	public:
+		virtual ~StringifyVisitor() {}
+		virtual void Visit(const char* name) {
+			//_MESSAGE("prop name %s", name);
+			GFxValue item;
+			groot->GetMember(name, &item);
+			cJSON* jv = stringify.stringify_s(&item);
+			std::string spaces;
+			//for (int i = 0; i < level; ++i) {
+			//	spaces = spaces + "  ";
+			//}
+			//_MESSAGE("%s", (spaces + name).c_str());
+			if (jv) // if undefined, or unable to parse don't add
+				cJSON_AddItemToObject(jroot, name, jv);
+		}
+
+		StringifyVisitor(Stringify& stringify, cJSON* jroot, GFxValue* groot)
+			: stringify(stringify), jroot(jroot), groot(groot) {}
+
+		Stringify& stringify;
+		cJSON* jroot;
+		GFxValue* groot;
+	};
+
+	int level;
+	GFxMovieView* movie;
+	std::vector<GFxValue*> parents;
+	bool error;
+
+	Stringify(GFxMovieView* movie) : movie(movie), error(false) {}
+
+	cJSON* stringify_s (GFxValue* groot) {
+		if (error)
+			return NULL;
+		cJSON* jroot = NULL;
+		parents.push_back(groot);
+		switch (groot->GetType()) {
+		case GFxValue::kType_Undefined:
+			break;
+		case GFxValue::kType_Null:
+			jroot = cJSON_CreateNull();
+			break;
+		case GFxValue::kType_Bool:
+			jroot = cJSON_CreateBool(groot->GetBool());
+			break;
+		case GFxValue::kType_Number:
+			jroot = cJSON_CreateNumber(groot->GetNumber());
+			break;
+		case GFxValue::kType_String:
+			jroot = cJSON_CreateString(groot->GetString());
+			break;
+		case GFxValue::kType_Array:
+			{
+				level++;
+				jroot = cJSON_CreateArray();
+				UInt32 len = groot->GetArraySize();
+				for (UInt32 i = 0; i < len; ++i) {
+					GFxValue item;
+					groot->GetElement(i, &item);
+					cJSON* jv = stringify_s(&item);
+					std::vector<GFxValue*>::iterator found = std::find(parents.begin(), parents.end(), &item);
+					if (found != parents.end()) {
+						error = true; // cyclic reference
+						return NULL;
+					}
+					cJSON_AddItemToArray(jroot, jv ? jv : cJSON_CreateNull()); // if undefined or unable to parse add null (consistent with browser JSON generators)
+				}
+			}
+			break;
+		case GFxValue::kType_DisplayObject:
+			// display objects like to stack overflowwwww
+		case GFxValue::kType_Object:
+			{
+				level++;
+				std::vector<GFxValue*>::iterator found = std::find(parents.begin(), parents.end(), groot);
+				if (found != parents.end()) {
+					error = true;
+					return NULL;
+				}
+				jroot = cJSON_CreateObject();
+				StringifyVisitor visitor(*this, jroot, groot);
+				visitMembers(groot, &visitor, groot->IsDisplayObject());
+			}
+			break;
+		}
+		parents.pop_back();
+		return jroot;
+	}
+
+	cJSON* stringify(GFxValue* groot) {
+		parents.clear();
+		return stringify_s(groot);
+	}
+};
+
+class hasMember : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		bool b = args->args[0].HasMember("fart");
+		args->result->SetBool(b);
+	}
+};
+
+class SKSEScaleform_stringify : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		ASSERT(args->numArgs >= 1);
+		_MESSAGE("type %d", args->args[0].GetType());
+		if (!(args->args[0].GetType() == GFxValue::kType_Array || args->args[0].IsObject() || args->args[0].IsDisplayObject())) {
+			args->result->SetUndefined();
+			return;
+		}
+		bool pretty = false;
+		if (args->numArgs > 1) {
+			pretty = args->args[1].GetBool();
+		}
+
+		Stringify stringifier(args->movie);
+		cJSON* jroot = stringifier.stringify(&args->args[0]);
+		if (jroot != NULL) {
+			char* text;
+			if (pretty)
+				text = cJSON_Print(jroot);
+			else
+				text = cJSON_PrintUnformatted(jroot);
+
+			char	path[MAX_PATH];
+
+			ASSERT(SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, path)));
+			strcat_s(path, sizeof(path), "\\My Games\\Skyrim\\SKSE\\json.log");
+			IFileStream::MakeAllDirs(path);
+
+			FILE* fp = NULL;
+			errno_t ec = fopen_s(&fp, path, "wb");
+			if (fp) {
+				fwrite(text, 1, strlen(text), fp);
+				fclose(fp);
+			}
+
+			args->movie->CreateString(args->result, text);
+
+			free(text);
+			cJSON_Delete(jroot);
+		} else {
+			if (stringifier.error) {
+				_MESSAGE("stringify encountered cyclic reference");
+			}
+			args->result->SetUndefined();
+		}
+	}
+};
 
 // function SetSerializationData(name:String, data:String):Void
 class SKSEScaleform_SetData : public GFxFunctionHandler
@@ -85,6 +331,85 @@ public:
 	}
 };
 
+bool parseJSON(cJSON* jroot, GFxMovieView* movie, GFxValue* groot);
+
+bool parseArray(cJSON* jroot, GFxMovieView* movie, GFxValue* groot) {
+	movie->CreateArray(groot);
+	for (cJSON* c = jroot->child; c;c = c->next) {
+		GFxValue val;
+		if (parseJSON(c, movie, &val)) {
+			groot->PushBack(&val);
+		} else {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool parseObject(cJSON* jroot, GFxMovieView* movie, GFxValue* groot) {
+	movie->CreateObject(groot);
+	for (cJSON* c = jroot->child; c; c = c->next) {
+		GFxValue val;
+		if (parseJSON(c, movie, &val)) {
+			groot->SetMember(c->string, &val);
+		} else {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool parseJSON(cJSON* jroot, GFxMovieView* movie, GFxValue* groot) {
+	switch (jroot->type) {
+	case cJSON_Array:
+		if (!parseArray(jroot, movie, groot))
+			return false;
+		break;
+	case cJSON_Object:
+		if (!parseObject(jroot, movie, groot))
+			return false;
+		break;
+	case cJSON_True:
+		groot->SetBool(true);
+		break;
+	case cJSON_False:
+		groot->SetBool(false);
+		break;
+	case cJSON_NULL:
+		groot->SetNull();
+		break;
+	case cJSON_Number:
+		groot->SetNumber(jroot->valuedouble);
+		break;
+	case cJSON_String:
+		movie->CreateString(groot, jroot->valuestring);
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+// function parse(json:String):Object
+class SKSEScaleform_parse : public GFxFunctionHandler
+{
+
+public:
+	virtual void Invoke(Args * args)
+	{
+		ASSERT(args->numArgs >= 1);
+		args->result->SetUndefined();
+
+		cJSON* root = cJSON_Parse(args->args[0].GetString());
+		if (root) {
+			if (!parseJSON(root, args->movie, args->result)) {
+				args->result->SetUndefined();
+			}
+			cJSON_Delete(root);
+		}
+	}
+};
+
 // function GetObjects(name:String):Array
 class SKSEScaleform_GetObjects : public GFxFunctionHandler
 {
@@ -97,44 +422,8 @@ public:
 		iter i = g_data.find(args->args[0].GetString());
 		cJSON* root;
 		if (i != g_data.end() && (root = cJSON_Parse(i->second.c_str()))) {
-			if (root->type == cJSON_Array) {
-				args->movie->CreateArray(args->result);
-
-				int len = cJSON_GetArraySize(root);
-				_MESSAGE("GetObjects %s (%d items)", args->args[0].GetString(), len);
-				for (int i = 0; i < len; ++i) {
-					GFxValue gobj;
-					cJSON* item = cJSON_GetArrayItem(root, i);
-					args->movie->CreateObject(&gobj);
-
-					int np = cJSON_GetArraySize(item);
-					for (int j = 0; j < np; ++j) {
-						cJSON* jm = cJSON_GetArrayItem(item, j);
-						GFxValue gm;
-						bool add = true;
-						switch (jm->type) {
-						case cJSON_True:
-							gm.SetBool(true);
-							break;
-						case cJSON_False:
-							gm.SetBool(false);
-							break;
-						case cJSON_Number:
-							gm.SetNumber(jm->valuedouble);
-							break;
-						case cJSON_String:
-							args->movie->CreateString(&gm, jm->valuestring);
-							break;
-						default:
-							add = false;
-							break;
-						}
-						if (add) {
-							gobj.SetMember(jm->string, &gm);
-						}
-					}
-					args->result->PushBack(&gobj);
-				}
+			if (!parseJSON(root, args->movie, args->result)) {
+				args->result->SetUndefined();
 			}
 			cJSON_Delete(root);
 		}
@@ -148,60 +437,24 @@ class SKSEScaleform_SetObjects : public GFxFunctionHandler
 public:
 	virtual void Invoke(Args * args)
 	{
-		if (args->numArgs < 3 ||
-			args->args[0].GetType() != GFxValue::kType_String ||
-			args->args[1].GetType() != GFxValue::kType_Array ||
-			args->args[2].GetType() != GFxValue::kType_Array) {
+		if (args->numArgs < 2 ||
+			args->args[0].GetType() != GFxValue::kType_String) {
 				args->result->SetBool(false);
 				return;
 		}
-		_MESSAGE("SetObjects %s (%d items)", args->args[0].GetString(), args->args[1].GetArraySize());
-		cJSON* root = cJSON_CreateArray();
-
-		std::vector<std::string> memberNames;
-		typedef std::vector<std::string>::iterator miter;
-		UInt32 mlen = args->args[2].GetArraySize();
-		for (UInt32 i = 0; i < mlen; ++i) {
-			GFxValue amem;
-			if (args->args[2].GetElement(i, &amem)) {
-				_MESSAGE("member %s", amem.GetString());
-				memberNames.push_back(amem.GetString());
-			}
-		}
-
-		UInt32 len = args->args[1].GetArraySize();
-		for (UInt32 i = 0; i < len; ++i) {
-			GFxValue gobj, gmem;
-			args->args[1].GetElement(i, &gobj);
-			cJSON* jobj = cJSON_CreateObject();
-
-			for (miter j = memberNames.begin(); j != memberNames.end(); ++j) {
-				if (gobj.HasMember(j->c_str())) {
-					gobj.GetMember(j->c_str(), &gmem);
-					
-					switch(gmem.GetType()) {
-					case GFxValue::kType_Bool:
-						cJSON_AddBoolToObject(jobj, j->c_str(), gmem.GetBool());
-						break;
-					case GFxValue::kType_Number:
-						cJSON_AddNumberToObject(jobj, j->c_str(), gmem.GetNumber());
-						break;
-					case GFxValue::kType_String:
-						cJSON_AddStringToObject(jobj, j->c_str(), gmem.GetString());
-						break;
-					}
-				}
-			}
-
-			cJSON_AddItemToArray(root, jobj);
-		}
-
-		char* value = cJSON_PrintUnformatted(root);
-		g_data[std::string(args->args[0].GetString())] = std::string(value);
-		free(value);
-		cJSON_Delete(root);
+		_MESSAGE("SetObjects %s", args->args[0].GetString());
 		
-		args->result->SetBool(true);
+		Stringify stringifier(args->movie);
+		cJSON* root = stringifier.stringify(&args->args[1]);
+		args->result->SetBool(root != NULL);
+		if (root != NULL) {
+			char * text = cJSON_PrintUnformatted(root);
+
+			g_data[std::string(args->args[0].GetString())] = std::string(text);
+
+			free(text);
+			cJSON_Delete(root);
+		}
 	}
 };
 
@@ -241,6 +494,11 @@ bool RegisterScaleform(GFxMovieView * view, GFxValue * root)
 	RegisterFunction <SKSEScaleform_GetObjects>(root, view, "GetObjects");
 
 	RegisterFunction <SKSEScaleform_Remove>(root, view, "Remove");
+
+	RegisterFunction <SKSEScaleform_parse>(root, view, "parse");
+	RegisterFunction <SKSEScaleform_stringify>(root, view, "stringify");
+
+	RegisterFunction <hasMember>(root, view, "hasMember");
 
 	//RegisterFunction <TLog>(root, view, "log");
 
