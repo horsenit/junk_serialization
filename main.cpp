@@ -38,6 +38,7 @@ pretty much copied from the skse plugin_example:
 #include <shlobj.h>
 
 const UInt32 kPluginVersion = 1;
+const UInt32 kSerializationUniqueID = 'JUNK';
 
 IDebugLog gLog;
 PluginHandle	g_pluginHandle = kPluginHandle_Invalid;
@@ -430,7 +431,7 @@ bool SKSEPlugin_Load(const SKSEInterface * skse)
 	// register callbacks and unique ID for serialization
 
 	// ### this must be a UNIQUE ID, change this and email me the ID so I can let you know if someone else has already taken it
-	g_serialization->SetUniqueID(g_pluginHandle, 'JUNK');
+	g_serialization->SetUniqueID(g_pluginHandle, kSerializationUniqueID);
 
 	g_serialization->SetRevertCallback(g_pluginHandle, Serialization_Revert);
 	g_serialization->SetSaveCallback(g_pluginHandle, Serialization_Save);
