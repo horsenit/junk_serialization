@@ -245,6 +245,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\README.md"
+			>
+		</File>
+		<File
 			RelativePath=".\resource.h"
 			>
 		</File>
