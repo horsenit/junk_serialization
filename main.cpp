@@ -118,6 +118,8 @@ public:
 	public:
 		virtual ~StringifyVisitor() {}
 		virtual void Visit(const char* name) {
+			if (stringify.error)
+				return;
 			//_MESSAGE("prop name %s", name);
 			GFxValue item;
 			groot->GetMember(name, &item);
@@ -135,7 +137,8 @@ public:
 	};
 
 	GFxMovieView* movie;
-	std::vector<GFxValue*> parents;
+	typedef std::vector<void*> Parents;
+	Parents parents;
 	bool error;
 
 	Stringify(GFxMovieView* movie) : movie(movie), error(false) {}
@@ -144,7 +147,15 @@ public:
 		if (error)
 			return NULL;
 		cJSON* jroot = NULL;
-		parents.push_back(groot);
+		if (groot->GetType() == GFxValue::kType_Array || groot->IsObject() || groot->IsDisplayObject()) {
+			Parents::iterator found = std::find(parents.begin(), parents.end(), groot->data.obj);
+			if (found != parents.end()) {
+				_MESSAGE("stringify encountered cyclic reference");
+				error = true; // cyclic reference
+				return NULL;
+			}
+			parents.push_back(groot->data.obj);
+		}
 		switch (groot->GetType()) {
 		case GFxValue::kType_Undefined:
 			break;
@@ -168,11 +179,8 @@ public:
 					GFxValue item;
 					groot->GetElement(i, &item);
 					cJSON* jv = stringify_s(&item);
-					std::vector<GFxValue*>::iterator found = std::find(parents.begin(), parents.end(), &item);
-					if (found != parents.end()) {
-						error = true; // cyclic reference
+					if (error)
 						return NULL;
-					}
 					cJSON_AddItemToArray(jroot, jv ? jv : cJSON_CreateNull()); // if undefined or unable to parse add null (consistent with browser JSON generators)
 				}
 			}
@@ -180,18 +188,17 @@ public:
 		case GFxValue::kType_DisplayObject:
 		case GFxValue::kType_Object:
 			{
-				std::vector<GFxValue*>::iterator found = std::find(parents.begin(), parents.end(), groot);
-				if (found != parents.end()) {
-					error = true;
-					return NULL;
-				}
 				jroot = cJSON_CreateObject();
 				StringifyVisitor visitor(*this, jroot, groot);
 				visitMembers(groot, &visitor, groot->IsDisplayObject());
+				if (error)
+					return NULL;
 			}
 			break;
 		}
-		parents.pop_back();
+		if (groot->GetType() == GFxValue::kType_Array || groot->IsObject() || groot->IsDisplayObject()) {
+			parents.pop_back();
+		}
 		return jroot;
 	}
 
@@ -232,9 +239,6 @@ public:
 			free(text);
 			cJSON_Delete(jroot);
 		} else {
-			if (stringifier.error) {
-				_MESSAGE("stringify encountered cyclic reference");
-			}
 			args->result->SetUndefined();
 		}
 	}
