@@ -1,29 +1,4 @@
 /*
-allows user to get/set string keys/values from skse serialization data (tied to savegame) from scaleform
-
-sort of similar to localStorage in html5
-
-strings cannot contain null characters (escape them)
-
-intrinsic class skse {
-static var plugins:Object;
-}
-
-// store a string
-function skse.plugins.junk_serialization.SetData(key:String, value:String):Void;
-// retrieve string
-function skse.plugins.junk_serialization.GetData(key:String):String;
-// remove data associated with key
-function skse.plugins.junk_serialization.Remove(key:String):Void;
-
-SetObjects and GetObjects are pretty specific to junk stuff and not generically usable,
-test to increase json parsing speed when structure of object is known
-
-much faster than an actionscript json parser or other as string parsing methods
-
-actionscript: couple minutes for 20,000 objects and about 4mb of raw json data
-or a couple seconds w/ the C parser
-
 pretty much copied from the skse plugin_example:
 */
 #include "common/IPrefix.h"
@@ -135,8 +110,6 @@ good:
 	return true;
 }
 
-cJSON* stringify(GFxValue* groot, GFxMovieView* movie, std::vector<GFxValue*>& parents);
-
 class Stringify
 {
 public:
@@ -149,11 +122,6 @@ public:
 			GFxValue item;
 			groot->GetMember(name, &item);
 			cJSON* jv = stringify.stringify_s(&item);
-			std::string spaces;
-			//for (int i = 0; i < level; ++i) {
-			//	spaces = spaces + "  ";
-			//}
-			//_MESSAGE("%s", (spaces + name).c_str());
 			if (jv) // if undefined, or unable to parse don't add
 				cJSON_AddItemToObject(jroot, name, jv);
 		}
@@ -166,7 +134,6 @@ public:
 		GFxValue* groot;
 	};
 
-	int level;
 	GFxMovieView* movie;
 	std::vector<GFxValue*> parents;
 	bool error;
@@ -195,7 +162,6 @@ public:
 			break;
 		case GFxValue::kType_Array:
 			{
-				level++;
 				jroot = cJSON_CreateArray();
 				UInt32 len = groot->GetArraySize();
 				for (UInt32 i = 0; i < len; ++i) {
@@ -212,10 +178,8 @@ public:
 			}
 			break;
 		case GFxValue::kType_DisplayObject:
-			// display objects like to stack overflowwwww
 		case GFxValue::kType_Object:
 			{
-				level++;
 				std::vector<GFxValue*>::iterator found = std::find(parents.begin(), parents.end(), groot);
 				if (found != parents.end()) {
 					error = true;
@@ -237,16 +201,7 @@ public:
 	}
 };
 
-class hasMember : public GFxFunctionHandler
-{
-public:
-	virtual void Invoke(Args * args)
-	{
-		bool b = args->args[0].HasMember("fart");
-		args->result->SetBool(b);
-	}
-};
-
+// function stringify(object:Object[, pretty:Boolean=false]):String
 class SKSEScaleform_stringify : public GFxFunctionHandler
 {
 public:
@@ -272,19 +227,6 @@ public:
 			else
 				text = cJSON_PrintUnformatted(jroot);
 
-			char	path[MAX_PATH];
-
-			ASSERT(SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, path)));
-			strcat_s(path, sizeof(path), "\\My Games\\Skyrim\\SKSE\\json.log");
-			IFileStream::MakeAllDirs(path);
-
-			FILE* fp = NULL;
-			errno_t ec = fopen_s(&fp, path, "wb");
-			if (fp) {
-				fwrite(text, 1, strlen(text), fp);
-				fclose(fp);
-			}
-
 			args->movie->CreateString(args->result, text);
 
 			free(text);
@@ -298,7 +240,7 @@ public:
 	}
 };
 
-// function SetSerializationData(name:String, data:String):Void
+// function SetData(key:String, data:String):Void
 class SKSEScaleform_SetData : public GFxFunctionHandler
 {
 public:
@@ -312,7 +254,7 @@ public:
 	}
 };
 
-// function GetSerializationData(name:String):String
+// function GetData(key:String):String
 class SKSEScaleform_GetData : public GFxFunctionHandler
 {
 public:
@@ -410,7 +352,7 @@ public:
 	}
 };
 
-// function GetObjects(name:String):Array
+// function GetObjects(key:String):Object
 class SKSEScaleform_GetObjects : public GFxFunctionHandler
 {
 
@@ -419,6 +361,7 @@ public:
 	{
 		ASSERT(args->numArgs >= 1);
 		args->result->SetUndefined();
+		_MESSAGE("GetObjects %s", args->args[0].GetString());
 		iter i = g_data.find(args->args[0].GetString());
 		cJSON* root;
 		if (i != g_data.end() && (root = cJSON_Parse(i->second.c_str()))) {
@@ -430,8 +373,7 @@ public:
 	}
 };
 
-//static const char* members[] = {"baseId", "formId", "name", "effects"};
-// function SetObjects(name:String, objects:Array, memberNames:Array):Boolean
+// function SetObjects(key:String, object:Object)
 class SKSEScaleform_SetObjects : public GFxFunctionHandler
 {
 public:
@@ -458,6 +400,7 @@ public:
 	}
 };
 
+// function Remove(key:String):Void
 class SKSEScaleform_Remove : public GFxFunctionHandler
 {
 public:
@@ -497,8 +440,6 @@ bool RegisterScaleform(GFxMovieView * view, GFxValue * root)
 
 	RegisterFunction <SKSEScaleform_parse>(root, view, "parse");
 	RegisterFunction <SKSEScaleform_stringify>(root, view, "stringify");
-
-	RegisterFunction <hasMember>(root, view, "hasMember");
 
 	//RegisterFunction <TLog>(root, view, "log");
 
