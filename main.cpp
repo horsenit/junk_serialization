@@ -556,6 +556,7 @@ void Serialization_Load(SKSESerializationInterface * intfc)
 }
 
 // plugin
+void ApplyPatches();
 
 extern "C"
 {
@@ -629,6 +630,8 @@ bool SKSEPlugin_Query(const SKSEInterface * skse, PluginInfo * info)
 bool SKSEPlugin_Load(const SKSEInterface * skse)
 {
 	_MESSAGE("load");
+
+	ApplyPatches();
 
 	// register scaleform callbacks
 	g_scaleform->Register("junk_serialization", RegisterScaleform);

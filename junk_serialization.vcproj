@@ -87,7 +87,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="copy /y &quot;$(TargetPath)&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;&#x0D;&#x0A;copy /y &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;"
+				CommandLine="copy /y &quot;$(TargetPath)&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;&#x0D;&#x0A;copy /y &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -165,7 +165,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="copy /y &quot;$(TargetPath)&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;&#x0D;&#x0A;copy /y &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;"
+				CommandLine="copy /y &quot;$(TargetPath)&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;&#x0D;&#x0A;copy /y &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;E:\Games\steam\steamapps\common\skyrim\Data\SKSE\Plugins&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -236,12 +236,88 @@
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="skse"
+			>
+			<File
+				RelativePath="..\skse\SafeWrite.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\SafeWrite.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="api"
+			>
+			<File
+				RelativePath="..\skse\GameAPI.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\GameAPI.h"
+				>
+			</File>
+			<File
+				RelativePath="..\skse\GameMenus.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\GameMenus.h"
+				>
+			</File>
+			<File
+				RelativePath="..\skse\GameTypes.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\GameTypes.h"
+				>
+			</File>
+		</Filter>
 		<File
 			RelativePath=".\exports.def"
 			>
 		</File>
 		<File
 			RelativePath=".\main.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\patches.cpp"
 			>
 		</File>
 		<File
