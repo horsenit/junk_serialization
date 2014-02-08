@@ -221,7 +221,7 @@ public:
 			return;
 		}
 		bool pretty = false;
-		if (args->numArgs > 1) {
+		if (args->numArgs > 1 && (args->args[1].GetType() == GFxValue::kType_Bool || args->args[1].GetType() == GFxValue::kType_Number)) {
 			pretty = args->args[1].GetBool();
 		}
 
