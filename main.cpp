@@ -47,6 +47,7 @@ protected:
 		Visit(**name);
 	}
 
+	// fairly certain this is where original vtable ends
 public:
 	virtual void Visit(const char* name) = 0;
 };
@@ -54,6 +55,7 @@ public:
 #define BDISPLAYOBJECT_GET 0x92CC00
 
 bool visitMembers(GFxValue* val, ObjectVisitor* visitor, bool isDisplayObject) {
+	ASSERT(val->GetType() == GFxValue::kType_Array || val->IsObject() || val->IsDisplayObject());
 	void* data = val->data.obj;
 	GFxValue::ObjectInterface* othis = val->objectInterface;
 	GFxMovieRoot* root = othis->root;
@@ -86,8 +88,8 @@ good:
 	mov ecx, root
 	mov ecx, [ecx+30h]
 	mov edx, [ecx]
-	mov eax, [edx+70h]
-	call eax
+	mov edx, [edx+70h]
+	call edx
 
 	mov edi, eax
 	add edi, 78h
