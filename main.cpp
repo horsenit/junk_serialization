@@ -13,8 +13,8 @@ pretty much copied from the skse plugin_example:
 #include <map>
 #include <algorithm>
 #include <shlobj.h>
+#include "version.h"
 
-const UInt32 kPluginVersion = 1;
 const UInt32 kSerializationUniqueID = 'JUNK';
 
 IDebugLog gLog;
@@ -629,7 +629,7 @@ bool SKSEPlugin_Query(const SKSEInterface * skse, PluginInfo * info)
 
 bool SKSEPlugin_Load(const SKSEInterface * skse)
 {
-	_MESSAGE("load");
+	_MESSAGE("v%s load", VERSION_STR);
 
 	ApplyPatches();
 
