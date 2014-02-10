@@ -28,6 +28,7 @@ typedef dataMap::iterator iter;
 dataMap g_data;
 
 // Scaleform
+void RegisterUpdateControl(GFxMovieView * view, GFxValue * root);
 
 class ObjectVisitor
 {
@@ -448,6 +449,7 @@ bool RegisterScaleform(GFxMovieView * view, GFxValue * root)
 	RegisterFunction <SKSEScaleform_stringify>(root, view, "stringify");
 
 	//RegisterFunction <TLog>(root, view, "log");
+	RegisterUpdateControl(view, root);
 
 	return true;
 }

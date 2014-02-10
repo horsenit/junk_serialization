@@ -1,101 +1,17 @@
 #include "common/IPrefix.h"
 #include "skse/SafeWrite.h"
 #include "skse/ScaleformCallbacks.h"
+#include "skse/ScaleformMovie.h"
 #include "skse/GameMenus.h"
 
 extern IDebugLog gLog;
 
 static UInt32 ** g_containerMode = (UInt32 **)0x01B3E6FC;
 
-// adds callbacks to ItemDrop, ItemSelect, ItemTransfer (if a valid entry selected)
-
-/*
-
-ref attemptchargeitem
-
-0x00A63C40
-externalinterface "call":
-void callback(unk, char* callbackName, FXResponseArgs args)
-
-0x00A63CC0
-externalinterface "respond":
-
-void __thiscall respond(FxResponseArgs* args)
-
-*/
-
-//const UInt32 RESPOND = 0x00A63CC0;
-
-/*
-FxResponseArgs<0> vtable
-0x010E37A4
-FxResponseArgs<1> vtable
-0x010E37AC
-*/
-/*
-const UInt32 VTABLE_FXRESPONSEARGS_0 = 0x010E37A4;
-
-__declspec(naked) void EmptyResponse()
-{
-__asm {
-	sub esp, 20h // room for FxResponseArgs
-	// ecx has 'this'
-	
-	// construct FxResponseArgs<0>
-	mov edx, VTABLE_FXRESPONSEARGS_0
-	mov dword ptr [esp], edx
-	mov dword ptr [esp+08h], 0
-	mov dword ptr [esp+0Ch], 0
-	mov dword ptr [esp+18h], 1
-
-	lea edx, [esp]
-	push edx
-	// ecx is this already
-	call [RESPOND]
-	add esp, 20h
-	ret
-}
-}
-
-const UInt32 DROP_CALL = 0x4759B0;
-const UInt32 DROP_JUMPBACK = 0x00869F83;
-
-
-__declspec(naked) void ItemDrop_Callback()
-{
-__asm {
-	call [DROP_CALL]
-
-	pushad
-	mov ecx, esi
-	call EmptyResponse
-	popad
-	jmp [DROP_JUMPBACK]
-}
-}
-
-const UInt32 TRANSFER_JUMPBACK = 0x0084B2A3;
-
-__declspec(naked) void ItemTransfer_Callback()
-{
-__asm {
-	mov ecx, [edi+18h]
-	fnstcw word ptr [esp+28h+4h]
-
-	pushad
-	mov ecx, edi
-	call EmptyResponse
-	pushad
-}
-	ScheduleInventoryUpdate();
-__asm {
-	popad
-	popad
-	jmp [TRANSFER_JUMPBACK]
-}
-}
-*/
-
+// set to true if you don't want inventory list updates queued, used internally by TakeAllItems
+static UInt8 * bDontUpdate = (UInt8 *)0x01B4019C;
+// checked in 897F90 (used by many functions, does something similar to ScheduleInventoryUpdate below)
+// set in 84B910 (TakeAllItems implementation)
 
 class InventoryUpdateData : public IUIMessageData
 {
@@ -104,8 +20,10 @@ public:
 	UInt32 unk0c; // form reference?
 };
 
-inline void ScheduleInventoryUpdate()
+void ScheduleInventoryUpdate()
 {
+	if (*bDontUpdate)
+		return;
 	UIStringHolder * stringHolder = UIStringHolder::GetSingleton();
 	BSFixedString * menuName = &stringHolder->topMenu;
 	//MenuManager * mm = MenuManager::GetSingleton();
@@ -179,13 +97,79 @@ __asm {
 
 void ApplyPatches()
 {
-	//00869F7E                 call    sub_4759B0
-	//WriteRelJump(0x00869F7E, (UInt32)ItemDrop_Callback);
-	//0084B29C                 mov     ecx, [edi+18h]
-	//WriteRelJump(0x0084B29C, (UInt32)ItemTransfer_Callback);
+	// seems kind of superfluous after whats below
 	WriteRelJump(0x0084B33B, (UInt32)ItemTransfer_AddUpdate);
 
 	WriteRelJump(0x00869F91, (UInt32)ItemDrop_QuestItem_AddUpdate);
 	WriteRelJump(0x00869FB7, (UInt32)ItemDrop_Key_AddUpdate);
 	
+}
+
+class SendUpdate : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		ScheduleInventoryUpdate();
+	}
+};
+
+class EnableUpdates : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		ASSERT(args->numArgs >= 1 && (args->args[0].GetType() == GFxValue::kType_Bool || args->args[0].GetType() == GFxValue::kType_Number));
+		args->result->SetUndefined();
+		bool enable = args->args[0].GetBool();
+
+		*bDontUpdate = enable ? 0 : 1;
+
+		IMenu * menu;
+		UIStringHolder * stringHolder = UIStringHolder::GetSingleton();
+		MenuManager * menuManager = MenuManager::GetSingleton();
+		UInt32 invOffset;
+
+		BSFixedString * menuName = NULL;
+		if (menuManager->IsMenuOpen(&stringHolder->containerMenu)) {
+			invOffset = 0x30;
+			menuName = &stringHolder->containerMenu;
+		}
+		else if (menuManager->IsMenuOpen(&stringHolder->barterMenu)) {
+			invOffset = 0x1C;
+			menuName = &stringHolder->barterMenu;
+		}
+		//else if (menuManager->IsMenuOpen(&stringHolder->inventoryMenu))
+		//	menuName = &stringHolder->inventoryMenu;
+		//else if (menuManager->IsMenuOpen(&stringHolder->giftMenu))
+		//	menuName = &stringHolder->giftMenu;
+		else {
+			_MESSAGE("EnableUpdates no menu found");
+			return;
+		}
+
+		menu = menuManager->GetMenu(menuName);
+		if (menu == NULL) {
+			_MESSAGE("EnableUpdates couldn't get menu");
+			return;
+		}
+		// member of itemmenu? at least barter and container anyway, holds inventory list info
+		void* invlist = *((void**)((UInt32)menu + invOffset));
+		// flag that gets set when the menu normally wants to disallow any more changes pending an update
+		// set it to 0 after it gets set (ex. ItemSelect/ItemTransfer) to be able to call it again without
+		// waiting for an update
+		// checked in 841D90 (to get selected item)
+		*((UInt8*)((UInt32)invlist + 0x34)) = enable ? 1 : 0;
+	}
+};
+
+// for a simple loop using ItemTransfer or ItemSelect to work:
+//   must call enableUpdates(false) before each ItemTransfer otherwise the transfer will silently fail
+//   must _not_ call transfer on same item twice (maybe, dunno, best not to)
+//   (after calling transfer on an item, any information in the item object or entryList at the selectedIndex will be stale)
+//   must call enableUpdates(true) true after otherwise no inventory updates will be sent
+//   must call sendUpdate() after that otherwise the inventory shown to the player will not reflect actual inventories
+void RegisterUpdateControl(GFxMovieView * view, GFxValue * root) {
+	RegisterFunction <EnableUpdates> (root, view, "enableUpdates");
+	RegisterFunction <SendUpdate> (root, view, "sendUpdate");
 }
