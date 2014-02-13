@@ -1,23 +1,22 @@
 #include "common/IPrefix.h"
 #include "skse/SafeWrite.h"
-#include "skse/ScaleformCallbacks.h"
-#include "skse/ScaleformMovie.h"
-#include "skse/GameMenus.h"
+#include "gfxvalue_visitor.h"
+#include "ext_obj.h"
 
 extern IDebugLog gLog;
 
 static UInt32 ** g_containerMode = (UInt32 **)0x01B3E6FC;
 
 // set to true if you don't want inventory list updates queued, used internally by TakeAllItems
-static UInt8 * bDontUpdate = (UInt8 *)0x01B4019C;
+UInt8 * bDontUpdate = (UInt8 *)0x01B4019C;
 // checked in 897F90 (used by many functions, does something similar to ScheduleInventoryUpdate below)
 // set in 84B910 (TakeAllItems implementation)
 
 class InventoryUpdateData : public IUIMessageData
 {
 public:
-	UInt32 unk08; // flag of some kind? id? form?
-	UInt32 unk0c; // form reference?
+	UInt32 unk08; // flag of some kind? id? form? seems to relate to StandardItemData::unk08
+	UInt32 unk0c; // 
 };
 
 void ScheduleInventoryUpdate()
@@ -95,81 +94,71 @@ __asm {
 
 // giftmenu unimplemented
 
+bool g_disableInvalidate = false;
+
+const UInt32 InvalidateListData_loc = 0x841D30;
+const UInt32 InvalidateListData_jmp = InvalidateListData_loc + 5;
+
+__declspec(naked) void callInvalidateListData()
+{
+__asm {
+	push eax
+	mov al, byte ptr [g_disableInvalidate]
+	test al, al
+	pop eax
+	jz doInvalidateCall
+	ret // no args
+
+doInvalidateCall:
+	// original code
+	sub esp, 20h
+	mov ecx, [ecx]
+	// will ret
+	jmp [InvalidateListData_jmp]
+}
+}
+
+// Normally inv menus only check the first extraData for ownership info,
+// if the first is a reference handle or alias list or whatever, it hides
+// the fact that there exist stolen items in the item stack.
+// this checks all entries in extradata and returns as soon as ownership is encountered (if it is)
+bool ObjDescExt::FixStolenCheck(TESForm* checkOwner, ExtraOwnership* owner, bool defaultValue)
+{
+	tList<BaseExtraList>::Iterator li;
+	for (li = extraData->Begin(); li.Get(); ++li) {
+		BaseExtraList * list = li.Get();
+		if (owner = static_cast<ExtraOwnership*>(list->GetByType(kExtraData_Ownership))) {
+			bool isOwned = CALL_MEMBER_FN(this, IsOwnedData)(checkOwner, owner, true);
+			if (!isOwned)
+				return false;
+		}
+	}
+	return defaultValue;
+}
+
+bool __stdcall FixStolenCheck(TESForm* checkOwner, ExtraOwnership* owner, bool defaultValue)
+{
+	ObjDescExt * pthis;
+	__asm mov pthis, ecx
+	return pthis->FixStolenCheck(checkOwner, owner, defaultValue);
+}
+
 void ApplyPatches()
 {
-	// seems kind of superfluous after whats below
+	// sort of superfluous after allowing multiple ItemTransfers and ItemSelects with enableUpdate/etc
+	// cause an invalidatelistdata event to be scheduled even if nothing was transferred or dropped
 	WriteRelJump(0x0084B33B, (UInt32)ItemTransfer_AddUpdate);
 
 	WriteRelJump(0x00869F91, (UInt32)ItemDrop_QuestItem_AddUpdate);
 	WriteRelJump(0x00869FB7, (UInt32)ItemDrop_Key_AddUpdate);
-	
-}
 
-class SendUpdate : public GFxFunctionHandler
-{
-public:
-	virtual void Invoke(Args * args)
-	{
-		ScheduleInventoryUpdate();
-	}
-};
+	// small bug fix, the default stolen check to display in inventory only checks the first BaseExtraList
+	// of each item, assuming it will contain ExtraOwnership if the item is stolen, but if it's something else,
+	// like a ExtraData ReferenceHandle, then it won't necessarily contain ownership info even if another item
+	// in the item stack does, and the inventory screen doesn't reflect that there are stolen items in that
+	// item stack
+	WriteRelCall(0x00477044, (UInt32)FixStolenCheck);
 
-class EnableUpdates : public GFxFunctionHandler
-{
-public:
-	virtual void Invoke(Args * args)
-	{
-		ASSERT(args->numArgs >= 1 && (args->args[0].GetType() == GFxValue::kType_Bool || args->args[0].GetType() == GFxValue::kType_Number));
-		args->result->SetUndefined();
-		bool enable = args->args[0].GetBool();
-
-		*bDontUpdate = enable ? 0 : 1;
-
-		IMenu * menu;
-		UIStringHolder * stringHolder = UIStringHolder::GetSingleton();
-		MenuManager * menuManager = MenuManager::GetSingleton();
-		UInt32 invOffset;
-
-		BSFixedString * menuName = NULL;
-		if (menuManager->IsMenuOpen(&stringHolder->containerMenu)) {
-			invOffset = 0x30;
-			menuName = &stringHolder->containerMenu;
-		}
-		else if (menuManager->IsMenuOpen(&stringHolder->barterMenu)) {
-			invOffset = 0x1C;
-			menuName = &stringHolder->barterMenu;
-		}
-		//else if (menuManager->IsMenuOpen(&stringHolder->inventoryMenu))
-		//	menuName = &stringHolder->inventoryMenu;
-		//else if (menuManager->IsMenuOpen(&stringHolder->giftMenu))
-		//	menuName = &stringHolder->giftMenu;
-		else {
-			_MESSAGE("EnableUpdates no menu found");
-			return;
-		}
-
-		menu = menuManager->GetMenu(menuName);
-		if (menu == NULL) {
-			_MESSAGE("EnableUpdates couldn't get menu");
-			return;
-		}
-		// member of itemmenu? at least barter and container anyway, holds inventory list info
-		void* invlist = *((void**)((UInt32)menu + invOffset));
-		// flag that gets set when the menu normally wants to disallow any more changes pending an update
-		// set it to 0 after it gets set (ex. ItemSelect/ItemTransfer) to be able to call it again without
-		// waiting for an update
-		// checked in 841D90 (to get selected item)
-		*((UInt8*)((UInt32)invlist + 0x34)) = enable ? 1 : 0;
-	}
-};
-
-// for a simple loop using ItemTransfer or ItemSelect to work:
-//   must call enableUpdates(false) before each ItemTransfer otherwise the transfer will silently fail
-//   must _not_ call transfer on same item twice (maybe, dunno, best not to)
-//   (after calling transfer on an item, any information in the item object or entryList at the selectedIndex will be stale)
-//   must call enableUpdates(true) true after otherwise no inventory updates will be sent
-//   must call sendUpdate() after that otherwise the inventory shown to the player will not reflect actual inventories
-void RegisterUpdateControl(GFxMovieView * view, GFxValue * root) {
-	RegisterFunction <EnableUpdates> (root, view, "enableUpdates");
-	RegisterFunction <SendUpdate> (root, view, "sendUpdate");
+	// allows to disable callback InvalidateListData depending on g_disableInvalidate
+	WriteRelJump(InvalidateListData_loc, (UInt32)callInvalidateListData);
 }

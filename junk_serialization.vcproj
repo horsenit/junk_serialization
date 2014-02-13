@@ -276,6 +276,70 @@
 				>
 			</File>
 			<File
+				RelativePath="..\skse\GameData.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\GameData.h"
+				>
+			</File>
+			<File
+				RelativePath="..\skse\GameExtraData.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\GameExtraData.h"
+				>
+			</File>
+			<File
+				RelativePath="..\skse\GameFormComponents.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\GameFormComponents.h"
+				>
+			</File>
+			<File
+				RelativePath="..\skse\GameForms.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\GameForms.h"
+				>
+			</File>
+			<File
 				RelativePath="..\skse\GameMenus.cpp"
 				>
 				<FileConfiguration
@@ -289,6 +353,22 @@
 			</File>
 			<File
 				RelativePath="..\skse\GameMenus.h"
+				>
+			</File>
+			<File
+				RelativePath="..\skse\GameRTTI.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\GameRTTI.h"
 				>
 			</File>
 			<File
@@ -307,13 +387,45 @@
 				RelativePath="..\skse\GameTypes.h"
 				>
 			</File>
+			<File
+				RelativePath="..\skse\HashUtil.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ForcedIncludeFiles="common/IPrefix.h"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\skse\HashUtil.h"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath=".\exports.def"
 			>
 		</File>
 		<File
+			RelativePath=".\ext_obj.h"
+			>
+		</File>
+		<File
+			RelativePath=".\gfxvalue_logdump.h"
+			>
+		</File>
+		<File
+			RelativePath=".\gfxvalue_visitor.h"
+			>
+		</File>
+		<File
 			RelativePath=".\main.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\menus.cpp"
 			>
 		</File>
 		<File

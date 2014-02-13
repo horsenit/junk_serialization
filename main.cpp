@@ -13,7 +13,9 @@ pretty much copied from the skse plugin_example:
 #include <map>
 #include <algorithm>
 #include <shlobj.h>
+#include "gfxvalue_visitor.h"
 #include "version.h"
+#include "ext_obj.h"
 
 const UInt32 kSerializationUniqueID = 'JUNK';
 
@@ -28,30 +30,6 @@ typedef dataMap::iterator iter;
 dataMap g_data;
 
 // Scaleform
-void RegisterUpdateControl(GFxMovieView * view, GFxValue * root);
-
-class ObjectVisitor
-{
-public:
-	virtual ~ObjectVisitor() {}
-protected:
-	virtual void Visit_impl(const char *** name, void* unk1, void* unk2) {
-		/*const char * name_str;
-		__asm {
-			push eax
-			mov eax, name
-			mov eax, [eax]
-			mov eax, [eax]
-			mov name_str, eax
-			pop eax
-		}*/
-		Visit(**name);
-	}
-
-	// fairly certain this is where original vtable ends
-public:
-	virtual void Visit(const char* name) = 0;
-};
 
 #define BDISPLAYOBJECT_GET 0x92CC00
 
@@ -558,7 +536,6 @@ void Serialization_Load(SKSESerializationInterface * intfc)
 }
 
 // plugin
-void ApplyPatches();
 
 extern "C"
 {
