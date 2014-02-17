@@ -112,6 +112,42 @@ extern UInt32 * g_playerHandle;
 STATIC_ASSERT(sizeof(ItemMenuData) == 0x38);
 
 /*
+class IMenu {
+...
+virtual UInt32	ProcessUnkData1(UnkData1* data);
+...
+}
+ProcessUnkData1 seems to actually be:
+
+virtual UInt32 ProcessMessage(UIMessage* message);
+
+for menus i've looked at, it processes any messages it knows
+(when UIMessage::message is 8 its an InventoryUpdateData for item menus for example, 3 is close which generally cleans up some stuff, 1 is open which initializes stuff etc)
+when it doesn't it seems to call a common DefaultProcessMessage type function which is at 0x00A64940, and takes the UIMessage as an argument, and returns that value
+the DefaultProcessMessage seems to call GFxMovieView::HandleEvent(UIMessage::objData) if objData is not null and UIMessage::message == 6, if it handles the message it returns 0, otherwise 2
+
+for example:
+UInt32 ProcessMessage(UIMessage* msg) {
+	switch (msg->message) {
+	case 8: // in BarterMenu, InventoryMenu, ContainerMenu, GiftMenu, etc. InventoryUpdateData
+		InventoryUpdateData * update = static_cast<InventoryUpdateData*>(msg->objData);
+		// do whatever
+		break;
+	case 1: // opening
+		// initialize
+		break;
+	case 3: // closing
+		// cleanup
+		break;
+	default:
+		return DefaultProcessMessage(msg);
+	}
+	return 0;
+}
+
+sh r UG
+the SKSE default ProcessUnkData1 does the equivalent of that "DefaultProcessMessage" anyway, so whatever
+
 class IUIMessageData
 {
 public:
