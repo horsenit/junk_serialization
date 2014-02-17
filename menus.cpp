@@ -104,6 +104,8 @@ public:
 			if (beli.Get()) {
 				BaseExtraList * l = beli.Get();
 				count = GetExtraCount(l);
+			} else {
+				count = ext->countDelta;
 			}
 		}
 		args->result->SetNumber(count);
