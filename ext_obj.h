@@ -117,7 +117,9 @@ class IUIMessageData
 public:
 	virtual ~IUIMessageData();
 //	void	** _vtbl;	// 00
-	UInt32 message; // 04, ex 3. for close menu, 1 when opening, 8 for itemmenus inventoryupdatedata
+	UInt8	unk04;		// 04
+	UInt8	unk05;		// 05
+	UInt8	pad06[2];	// 06
 };
 */
 
