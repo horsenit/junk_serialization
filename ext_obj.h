@@ -93,7 +93,6 @@ public:
 	tArray<StandardItemData*> items; // 28
 	UInt8 updatePending; // 34 - flag checked in GetSelectedItem, returns NULL if set
 	UInt8 unk31[3];
-	// ...
 	
 	// grabs StandardItem that corresponds to listObject's selectedIndex
 	StandardItemData* GetSelectedItem() {
@@ -109,6 +108,8 @@ public:
 };
 //PlayerCharacter	** g_thePlayer = (PlayerCharacter **)0x01B2E8E4;
 extern UInt32 * g_playerHandle;
+
+STATIC_ASSERT(sizeof(ItemMenuData) == 0x38);
 
 /*
 class IUIMessageData
