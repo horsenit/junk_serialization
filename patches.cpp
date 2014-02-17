@@ -7,6 +7,8 @@ extern IDebugLog gLog;
 
 static UInt32 ** g_containerMode = (UInt32 **)0x01B3E6FC;
 
+UInt32 * g_playerHandle = (UInt32*)0x01B2E8E8;
+
 // set to true if you don't want inventory list updates queued, used internally by TakeAllItems
 UInt8 * bDontUpdate = (UInt8 *)0x01B4019C;
 // checked in 897F90 (used by many functions, does something similar to ScheduleInventoryUpdate below)
