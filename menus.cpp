@@ -222,6 +222,81 @@ public:
 	}
 };
 //*/
+
+const UInt32 addr_getPlayerGold = 0x6A8190;
+
+class GetPlayerGold : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		UInt32 gold;
+	__asm {
+		push ecx
+		push eax
+		mov ecx, g_thePlayer
+		mov ecx, [ecx]
+		call addr_getPlayerGold
+		mov gold, eax
+		pop eax
+		pop ecx
+	}
+		args->result->SetNumber(gold);
+	}
+};
+
+const UInt32 addr_vendor = 0x012E2CB8; // void ** + 0AACh
+const UInt32 addr_getVendorGold = 0x0047AB00;
+
+UInt32 * vhandle = (UInt32*) 0x01B3E518;
+
+const _LookupREFRByHandle		LookupREFRByHandle = (_LookupREFRByHandle)0x004A9180;
+
+class GetVendorGold : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		args->result->SetUndefined();
+		UIStringHolder * stringHolder = UIStringHolder::GetSingleton();
+		MenuManager * menuManager = MenuManager::GetSingleton();
+
+		ASSERT(menuManager != NULL);
+		ASSERT(stringHolder != NULL);
+		ASSERT(menuManager->IsMenuOpen(&stringHolder->barterMenu));
+		BarterMenuExt * menu = static_cast<BarterMenuExt*>(menuManager->GetMenu(&stringHolder->barterMenu));
+
+		TESObjectREFR * refr;
+		_MESSAGE("handle %x %x", vhandle, *vhandle);
+		if (LookupREFRByHandle(vhandle, &refr)) {
+			//TES * actor = DYNAMIC_CAST(refr, TESObjectREFR, TESActorBase);
+			_MESSAGE("act %x",refr);
+			UInt32 gold;
+		__asm {
+			push ecx
+			push eax
+			mov ecx, refr
+			call addr_getPlayerGold
+			mov gold, eax
+			pop eax
+			pop ecx
+		}
+			/*__asm {
+		push ecx
+		push eax
+		mov ecx, addr_vendor
+		mov ecx, [ecx]
+		mov ecx, [ecx+0AACh]
+		call addr_getVendorGold
+		mov gold, eax
+		pop eax
+		pop ecx
+	}*/
+			args->result->SetNumber(menu->vendorGold);
+		}
+	}
+};
+
 // for a simple loop using ItemTransfer or ItemSelect to work:
 //   must call enableUpdates(false) before each ItemTransfer otherwise the transfer will silently fail
 //   must _not_ call transfer on same item twice (maybe, dunno, best not to)
@@ -241,6 +316,9 @@ void RegisterUpdateControl(GFxMovieView * view, GFxValue * root) {
 	RegisterFunction <GetFirstExtraCount> (root, view, "getFirstExtraCount");
 	RegisterFunction <UpdateList> (root, view, "updateList");
 	// explaining the usage here -- well, i won't, it's fucking stupid
+
+	RegisterFunction <GetPlayerGold> (root, view, "getPlayerGold");
+	RegisterFunction <GetVendorGold> (root, view, "getVendorGold");
 
 	//RegisterFunction <DumpRoot> (root, view, "_debugDumpRoot");
 	//RegisterFunction <DumpVar> (root, view, "_debugDumpVar");
