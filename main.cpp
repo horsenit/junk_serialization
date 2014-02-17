@@ -117,12 +117,11 @@ public:
 		GFxValue* groot;
 	};
 
-	GFxMovieView* movie;
 	typedef std::vector<void*> Parents;
 	Parents parents;
 	bool error;
 
-	Stringify(GFxMovieView* movie) : movie(movie), error(false) {}
+	Stringify() : error(false) {}
 
 	cJSON* stringify_s (GFxValue* groot) {
 		if (error)
@@ -206,7 +205,7 @@ public:
 			pretty = args->args[1].GetBool();
 		}
 
-		Stringify stringifier(args->movie);
+		Stringify stringifier;
 		cJSON* jroot = stringifier.stringify(&args->args[0]);
 		if (jroot != NULL) {
 			char* text;
@@ -371,7 +370,7 @@ public:
 		}
 		_MESSAGE("SetObjects %s", args->args[0].GetString());
 		
-		Stringify stringifier(args->movie);
+		Stringify stringifier;
 		cJSON* root = stringifier.stringify(&args->args[1]);
 		args->result->SetBool(root != NULL);
 		if (root != NULL) {
