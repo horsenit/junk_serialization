@@ -131,10 +131,12 @@ class BarterMenuExt : public IMenu
 {
 public:
 	ItemMenuData * itemData; // 1C
-	UInt32 unk20[(0x54 - 0x20) >> 2]; // 20
-	UInt32 unkFlag; // 54 -- non-zero 843FF0 , zero 843EE0, initialized maybe
-	UInt32 unk58;
-	UInt32 unk5C;
+	UInt32 unk20[(0x4C - 0x20) >> 2]; // 20
+	tArray<TESForm*> changed; // 4C list of data that changed? tArray<TESForm*> ?, pretty sure its array, branch below taken when length > 0
+							  // added when an item is removed from one list or the other (ex sell/buy all of one type of item), so the list needs to change size
+							  // length > 0 843FF0, == 0 843EE0
+	UInt32 playerGold; // 58
+	UInt32 vendorGold; // 5C
 	UInt32 sortFlag; // 60
 
 	MEMBER_FN_PREFIX(BarterMenuExt);
