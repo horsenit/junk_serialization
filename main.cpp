@@ -14,6 +14,7 @@ pretty much copied from the skse plugin_example:
 #include "gfxvalue_visitor.h"
 #include "version.h"
 #include "ext_obj.h"
+#include "log.h"
 
 const UInt32 kSerializationUniqueID = 'JUNK';
 
@@ -301,18 +302,6 @@ public:
 	}
 };
 
-class TLog : public GFxFunctionHandler
-{
-public:
-	virtual void Invoke(Args * args)
-	{
-		ASSERT(args->numArgs >= 1);
-		args->result->SetUndefined();
-
-		gLog.Message(args->args[0].GetString());
-	}
-};
-
 bool RegisterScaleform(GFxMovieView * view, GFxValue * root)
 {
 	RegisterFunction <SKSEScaleform_SetData>(root, view, "SetData");
@@ -326,7 +315,7 @@ bool RegisterScaleform(GFxMovieView * view, GFxValue * root)
 	RegisterFunction <SKSEScaleform_parse>(root, view, "parse");
 	RegisterFunction <SKSEScaleform_stringify>(root, view, "stringify");
 
-	//RegisterFunction <TLog>(root, view, "log");
+	RegisterLogging(view, root);
 	RegisterUpdateControl(view, root);
 
 	return true;

@@ -8,6 +8,7 @@
 
 class LogDump
 {
+protected:
 	class LogVisitor : public ObjectVisitor
 	{
 	public:
@@ -49,7 +50,7 @@ class LogDump
 		parents.pop_back();
 	}
 
-	void log(const char* message) {
+	virtual void log(const char* message) {
 		std::stringstream ss;
 		for (int i = 0; i < level; ++i) {
 			ss << "  ";
@@ -73,7 +74,9 @@ class LogDump
 
 	void do_dump(GFxValue* root) {
 		if (findParent(root)) {
+			++level;
 			logf("circular reference parent=%08x", root->data.obj);
+			--level;
 			return;
 		}
 		addParent(root);
@@ -89,18 +92,22 @@ class LogDump
 			log(root->GetBool() ? "true" : "false");
 			break;
 		case GFxValue::kType_Number:
-			logf("%f", root->GetNumber());
+			logf("%.20g", root->GetNumber());
 			break;
 		case GFxValue::kType_String:
-			logf("\"%s\"", root->GetString());
+			log(root->GetString());
 			break;
 		case GFxValue::kType_Array:
 		case GFxValue::kType_Object:
 		case GFxValue::kType_DisplayObject:
 			{
 				LogVisitor v(*this, root);
-				logf("%08x properties (type: %d)", root->data.obj, root->GetType());
+				logf("%s (%08x)", (root->GetType() == GFxValue::kType_Array ? "Array" :
+									(root->GetType() == GFxValue::kType_Object ? "Object" : "DisplayObject")),
+								root->data.obj);
+				++level;
 				visitMembers(root, &v, root->IsDisplayObject());
+				--level;
 			}
 			break;
 		default:
@@ -110,14 +117,11 @@ class LogDump
 		--level;
 		popParent();
 	}
-
-	LogDump() : level(-1) {}
-
 public:
-	static void dump(GFxValue* root, int level = 0) {
-		LogDump dumper;
-		dumper.level = level - 1;
-		dumper.do_dump(root);
+	LogDump() : level(-1) {}
+	void dump(GFxValue* root, int level = 0) {
+		level = level - 1;
+		do_dump(root);
 	}
 };
 

@@ -421,6 +421,14 @@
 			>
 		</File>
 		<File
+			RelativePath=".\log.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\log.h"
+			>
+		</File>
+		<File
 			RelativePath=".\main.cpp"
 			>
 		</File>
