@@ -107,7 +107,25 @@ public:
 	//DEFINE_MEMBER_FN(ScheduleUpdate, void, 0x00841E70, TESForm* source /*not sure*/);
 	//DEFINE_MEMBER_FN(InvalidateListData, void, 0x00841D30);
 };
+//PlayerCharacter	** g_thePlayer = (PlayerCharacter **)0x01B2E8E4;
+extern UInt32 * g_playerHandle;
 
+/*
+class IUIMessageData
+{
+public:
+	virtual ~IUIMessageData();
+//	void	** _vtbl;	// 00
+	UInt32 message; // 04, ex 3. for close menu, 1 when opening, 8 for itemmenus inventoryupdatedata
+};
+*/
+
+class InventoryUpdateData : public IUIMessageData
+{
+public:
+	UInt32 refHandle; // 08 ref handle, 0x00100000 for player, properly *0x1B2E8E8, or use container
+	TESForm * form; // 0C can be null
+};
 
 class BarterMenuExt : public IMenu
 {

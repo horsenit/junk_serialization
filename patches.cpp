@@ -12,13 +12,6 @@ UInt8 * bDontUpdate = (UInt8 *)0x01B4019C;
 // checked in 897F90 (used by many functions, does something similar to ScheduleInventoryUpdate below)
 // set in 84B910 (TakeAllItems implementation)
 
-class InventoryUpdateData : public IUIMessageData
-{
-public:
-	UInt32 unk08; // flag of some kind? id? form? seems to relate to StandardItemData::unk08
-	UInt32 unk0c; // 
-};
-
 void ScheduleInventoryUpdate()
 {
 	if (*bDontUpdate)
@@ -37,8 +30,8 @@ void ScheduleInventoryUpdate()
 
 	InventoryUpdateData* inventoryUpdate = (InventoryUpdateData*) CreateUIMessageData(&stringHolder->inventoryUpdateData);
 	if (inventoryUpdate) {
-		inventoryUpdate->unk08 = 0x00100000;
-		inventoryUpdate->unk0c = 0x00000000;
+		inventoryUpdate->refHandle = *g_playerHandle;
+		inventoryUpdate->form = 0x00000000;
 		CALL_MEMBER_FN(UIManager::GetSingleton(), AddMessage)(menuName, 8, inventoryUpdate);
 	}
 }
