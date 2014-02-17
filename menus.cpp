@@ -25,11 +25,6 @@ ItemMenuData * getItemData() {
 	}
 	else {
 		_MESSAGE("no menu");
-
-		if (menuManager->IsMenuOpen(&stringHolder->inventoryMenu)) {
-			menu = menuManager->GetMenu(&stringHolder->inventoryMenu);
-			_MESSAGE(" INVMENU %08x", menu);
-		}
 		return NULL;
 	}
 	menu = menuManager->GetMenu(menuName);
