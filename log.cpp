@@ -55,6 +55,15 @@ static FILEPtr& getLog(const std::string& fileName) {
 	return fp;
 }
 
+static void clearLog(const std::string& fileName) {
+	LogMap::iterator i = g_logMap.find(fileName);
+	if (i != g_logMap.end()) {
+		i->second.reset(); // removes reference to the FILE* and will close it with the deleter
+		g_logMap.erase(i);
+		getLog(fileName); // will reopen log file, and truncate it
+	}
+}
+
 class FLogDump : public LogDump
 {
 protected:
@@ -120,8 +129,23 @@ public:
 	}
 };
 
+class TClearLog : public GFxFunctionHandler
+{
+public:
+	virtual void Invoke(Args * args)
+	{
+		ASSERT(args->numArgs >= 1);
+		ASSERT(args->args[0].GetType() == GFxValue::kType_String);
+		std::string fileName = args->args[0].GetString();
+		g_logLock.Enter();
+		clearLog(fileName);
+		g_logLock.Leave();
+	}
+};
+
 void RegisterLogging(GFxMovieView * view, GFxValue * root)
 {
 	RegisterFunction <TLog>(root, view, "log");
 	RegisterFunction <TLogFn>(root, view, "logFn");
+	RegisterFunction <TClearLog>(root, view, "clearLog");
 }
